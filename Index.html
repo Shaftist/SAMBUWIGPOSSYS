@@ -57,6 +57,11 @@
             <p>Table: <span id="receipt-table"></span></p>
             <p>Order #: <span id="receipt-id"></span></p>
             <p>Staff: <span id="receipt-staff"></span></p>
+            <!-- Added Customer Details for Online Orders -->
+            <div id="receipt-customer-info" class="hidden mt-1 pt-1 border-t border-dashed border-gray-400">
+                <p>Name: <span id="receipt-cust-name"></span></p>
+                <p>Addr: <span id="receipt-cust-addr"></span></p>
+            </div>
         </div>
         <table class="w-full mb-4">
             <thead>
@@ -331,18 +336,29 @@
                     
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
                         <!-- Table Map -->
-                        <div class="lg:col-span-2 bg-white rounded shadow p-4 overflow-y-auto">
-                            <h3 class="font-bold text-gray-500 uppercase text-xs mb-4">Table Status</h3>
-                            <div id="cashier-table-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                                <!-- Dynamic Tables -->
+                        <div class="lg:col-span-2 bg-white rounded shadow p-4 overflow-y-auto flex flex-col gap-4">
+                            <!-- Tables Section -->
+                            <div>
+                                <h3 class="font-bold text-gray-500 uppercase text-xs mb-4">Table Status</h3>
+                                <div id="cashier-table-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                                    <!-- Dynamic Tables -->
+                                </div>
+                            </div>
+                            
+                            <!-- Online Orders Section (NEW) -->
+                            <div class="border-t pt-4">
+                                <h3 class="font-bold text-gray-500 uppercase text-xs mb-4">Delivery / Online Orders</h3>
+                                <div id="cashier-online-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <!-- Dynamic Online Orders -->
+                                </div>
                             </div>
                         </div>
 
                         <!-- Active Order Details -->
                         <div class="bg-gray-100 rounded shadow p-4 flex flex-col border border-gray-200">
-                            <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Selected Table Details</h3>
+                            <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Selected Order Details</h3>
                             <div id="cashier-order-detail" class="flex-1 flex flex-col">
-                                <p class="text-gray-500 text-center mt-10 italic">Select an occupied table to view details.</p>
+                                <p class="text-gray-500 text-center mt-10 italic">Select an occupied table or online order.</p>
                             </div>
                         </div>
                     </div>
@@ -380,7 +396,7 @@
                     </div>
                 </div>
 
-                <!-- REPORTS & INVENTORY & ADJUST (Simplified for brevity, same logic applies) -->
+                <!-- REPORTS & INVENTORY & ADJUST -->
                  <div id="tab-reports" class="content-tab hidden p-4 md:p-6 fade-in h-full flex flex-col">
                     <h2 class="text-2xl font-bold text-gray-800 mb-6">Monthly Reports</h2>
                     <div class="bg-white p-4 rounded shadow mb-6 flex flex-wrap gap-4 items-end">
@@ -593,10 +609,11 @@
         }
 
         function renderCashierView() {
+            // 1. Render Physical Tables
             const grid = document.getElementById('cashier-table-grid');
             grid.innerHTML = '';
             tablesData.forEach(t => {
-                const order = activeOrdersData.find(o => o.tableId === t.id);
+                const order = activeOrdersData.find(o => o.tableId === t.id && o.status !== 'completed');
                 const div = document.createElement('div');
                 div.className = `p-4 rounded shadow border text-center cursor-pointer ${order ? (order.status==='pending'?'bg-yellow-100 border-yellow-400':'bg-blue-100 border-blue-400') : 'bg-white border-gray-200'}`;
                 div.innerHTML = `
@@ -606,6 +623,35 @@
                 div.onclick = () => showCashierDetails(order);
                 grid.appendChild(div);
             });
+
+            // 2. Render Online/Delivery Orders (Tableless)
+            const onlineGrid = document.getElementById('cashier-online-grid');
+            onlineGrid.innerHTML = '';
+            // Filter active orders where tableId is 'online'
+            const onlineOrders = activeOrdersData.filter(o => o.tableId === 'online' && o.status !== 'completed');
+            
+            if(onlineOrders.length === 0) {
+                onlineGrid.innerHTML = '<div class="text-gray-400 italic text-sm col-span-full">No active online orders.</div>';
+            } else {
+                onlineOrders.forEach(o => {
+                    const div = document.createElement('div');
+                    // Online orders usually start 'pending', then move to 'served' (Ready for Delivery/Pickup)
+                    const statusClass = o.status === 'pending' ? 'bg-orange-100 border-orange-300' : 'bg-green-100 border-green-300';
+                    div.className = `p-3 rounded shadow border flex justify-between items-center cursor-pointer ${statusClass}`;
+                    div.innerHTML = `
+                        <div>
+                            <div class="font-bold text-sm">${o.tableName || 'Online Order'}</div>
+                            <div class="text-xs text-gray-600">${new Date(o.timestamp).toLocaleTimeString()}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold text-sm">$${o.total.toFixed(2)}</div>
+                            <div class="text-[10px] uppercase font-bold">${o.status}</div>
+                        </div>
+                    `;
+                    div.onclick = () => showCashierDetails(o);
+                    onlineGrid.appendChild(div);
+                });
+            }
         }
 
         function renderPosTableGrid() {
@@ -781,6 +827,16 @@
             document.getElementById('receipt-table').textContent = order.tableName || order.tableNumber || 'N/A';
             document.getElementById('receipt-id').textContent = order.id.slice(0,6);
             document.getElementById('receipt-staff').textContent = order.staffEmail.split('@')[0];
+            
+            // Show Customer Info for Online Orders
+            if(order.customerDetails) {
+                document.getElementById('receipt-customer-info').classList.remove('hidden');
+                document.getElementById('receipt-cust-name').textContent = order.customerDetails.name;
+                document.getElementById('receipt-cust-addr').textContent = order.customerDetails.address;
+            } else {
+                document.getElementById('receipt-customer-info').classList.add('hidden');
+            }
+
             const tbody = document.getElementById('receipt-items'); tbody.innerHTML = '';
             order.items.forEach(i => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="py-1">${i.name} ${i.discount ? `(-${i.discount}%)` : ''}</td><td class="py-1 text-right">${i.qty}</td><td class="py-1 text-right">${(i.price * i.qty * ((100-(i.discount||0))/100)).toFixed(2)}</td>`; tbody.appendChild(tr); });
             document.getElementById('receipt-total').textContent = '$' + order.total.toFixed(2);
@@ -790,13 +846,32 @@
         // --- LOGIC (Event Listeners & Window assignments) ---
         function showCashierDetails(order) {
             const detail = document.getElementById('cashier-order-detail');
-            if(!order) { detail.innerHTML = '<p class="text-gray-500 text-center mt-10 italic">Select an occupied table to view details.</p>'; return; }
+            if(!order) { detail.innerHTML = '<p class="text-gray-500 text-center mt-10 italic">Select an occupied table or online order.</p>'; return; }
+            
             const isServed = order.status === 'served';
+            const isOnline = order.tableId === 'online';
+            const customerInfo = isOnline && order.customerDetails ? 
+                `<div class="mb-4 p-2 bg-yellow-50 text-sm border border-yellow-200 rounded">
+                    <strong>Customer:</strong> ${order.customerDetails.name}<br>
+                    <strong>Addr:</strong> ${order.customerDetails.address}<br>
+                    <strong>Phone:</strong> ${order.customerDetails.phone}<br>
+                    <strong>Pay:</strong> ${order.customerDetails.paymentMethod}
+                 </div>` : '';
+
             detail.innerHTML = `
-                <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">${order.tableName}</h2><span class="px-2 py-1 rounded text-xs font-bold ${isServed ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'}">${order.status.toUpperCase()}</span></div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">${order.tableName}</h2>
+                    <span class="px-2 py-1 rounded text-xs font-bold ${isServed ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'}">${order.status.toUpperCase()}</span>
+                </div>
+                ${customerInfo}
                 <ul class="flex-1 overflow-y-auto space-y-2 mb-4">${order.items.map(i => `<li class="flex justify-between border-b pb-1"><span>${i.qty}x ${i.name}</span><span>$${(i.price*i.qty).toFixed(2)}</span></li>`).join('')}</ul>
                 <div class="text-right font-bold text-2xl mb-4">$${order.total.toFixed(2)}</div>
-                <div class="grid grid-cols-1 gap-2">${isServed ? `<button onclick="finalizePayment('${order.id}')" class="bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 shadow">Pay & Close</button>` : `<button disabled class="bg-gray-300 text-gray-500 py-3 rounded font-bold cursor-not-allowed">Wait for Kitchen</button>`}<button onclick="cancelOrder('${order.id}')" class="bg-red-100 text-red-600 py-2 rounded font-bold hover:bg-red-200">Cancel Order</button></div>
+                <div class="grid grid-cols-1 gap-2">
+                    ${isServed 
+                        ? `<button onclick="finalizePayment('${order.id}')" class="bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 shadow">Pay & Close</button>` 
+                        : `<button disabled class="bg-gray-300 text-gray-500 py-3 rounded font-bold cursor-not-allowed">Wait for Kitchen</button>`}
+                    <button onclick="cancelOrder('${order.id}')" class="bg-red-100 text-red-600 py-2 rounded font-bold hover:bg-red-200">Cancel Order</button>
+                </div>
             `;
         }
 
@@ -819,34 +894,25 @@
             const tableName = tablesData.find(t => t.id === selectedTableId).name;
             try {
                 const btn = document.getElementById('btn-process-order'); btn.disabled = true;
-                
                 await runTransaction(db, async (t) => {
                     const itemReads = [];
-                    
-                    // 1. READ ALL FIRST
+                    // 1. READ ALL
                     for (const i of items) { 
                         const ref = doc(db, "inventory", i.item.id);
                         const snap = await t.get(ref);
                         if (!snap.exists()) throw `Item ${i.item.name} not found`;
                         itemReads.push({ ref, snap, item: i });
                     }
-
-                    // 2. VALIDATE ALL
+                    // 2. VALIDATE
                     for (const data of itemReads) {
-                        if (data.snap.data().stock < data.item.quantity) {
-                            throw `Low stock: ${data.item.item.name}. Available: ${data.snap.data().stock}`;
-                        }
+                        if (data.snap.data().stock < data.item.quantity) throw `Low stock: ${data.item.item.name}`;
                     }
-
                     // 3. WRITE ALL
                     for (const data of itemReads) {
                         const newStock = data.snap.data().stock - data.item.quantity;
-                        t.update(data.ref, { 
-                            stock: newStock,
-                            lastSold: new Date().toISOString()
-                        });
+                        t.update(data.ref, { stock: newStock, lastSold: new Date().toISOString() });
                     }
-
+                    // 4. CREATE ORDER
                     const total = items.reduce((sum, i) => sum + (i.quantity * i.item.price * ((100 - (i.discount||0)) / 100)), 0);
                     const ref = doc(collection(db, "active_orders"));
                     t.set(ref, { 
@@ -859,14 +925,11 @@
                         staffEmail: currentUser.email 
                     });
                 });
-
                 cart = {}; selectedTableId = null; renderCart(); renderPosTableGrid(); document.getElementById('selected-table-display').textContent = "No Table Selected"; showToast("Order Sent!", "success");
             } catch(e) { 
                 console.error(e);
                 showToast(typeof e === 'string' ? e : e.message, "error"); 
-            } finally { 
-                document.getElementById('btn-process-order').disabled = false; 
-            }
+            } finally { document.getElementById('btn-process-order').disabled = false; }
         });
 
         // --- REPORTING ---
