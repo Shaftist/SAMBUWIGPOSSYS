@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sambuwig Waiter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* iOS 12 Specific Fixes */
+        body { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+        .touch-action-manipulation { touch-action: manipulation; }
+        
+        /* Native-like scrolling on iOS */
+        .ios-scroll { 
+            -webkit-overflow-scrolling: touch; 
+            overflow-y: auto;
+        }
+
+        /* Safe Area for iPhone X+ */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .pt-safe { padding-top: env(safe-area-inset-top); }
+
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        /* Ensure clicks register on iOS 12 for non-buttons */
+        .clickable { cursor: pointer; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-view" class="fixed inset-0 z-50 bg-gray-900 flex flex-col justify-center p-6">
+        <div class="text-center mb-8">
+            <i class="fas fa-utensils text-5xl text-orange-500 mb-4"></i>
+            <h1 class="text-3xl font-bold text-white">Sambuwig</h1>
+            <p class="text-gray-400">Waiter Portal</p>
+        </div>
+        <form id="login-form" class="space-y-4">
+            <!-- text-base (16px) prevents auto-zoom on iOS -->
+            <input type="email" id="email" class="w-full p-4 rounded bg-gray-800 text-white border border-gray-700 focus:border-orange-500 outline-none text-base" placeholder="Email" required>
+            <input type="password" id="password" class="w-full p-4 rounded bg-gray-800 text-white border border-gray-700 focus:border-orange-500 outline-none text-base" placeholder="Password" required>
+            <button type="submit" class="w-full bg-orange-600 text-white font-bold py-4 rounded-lg shadow-lg hover:bg-orange-700 active:scale-95 transition clickable">Login</button>
+        </form>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-view" class="hidden flex-col h-full relative">
+        
+        <!-- HEADER -->
+        <div class="bg-white shadow px-4 py-3 flex justify-between items-center z-10 pt-safe">
+            <div class="font-bold text-lg text-gray-800"><i class="fas fa-utensils text-orange-500 mr-2"></i>Waiter App</div>
+            <div class="text-xs text-gray-500" id="user-display">Loading...</div>
+        </div>
+
+        <!-- CONTENT AREA -->
+        <main id="main-content" class="flex-1 ios-scroll bg-gray-50 pb-24 relative">
+            
+            <!-- VIEW: TABLES -->
+            <div id="view-tables" class="p-4 fade-in">
+                <h2 class="text-xl font-bold mb-4 text-gray-700">Select Table</h2>
+                <div id="tables-grid" class="grid grid-cols-2 gap-4">
+                    <!-- Dynamic Tables -->
+                </div>
+            </div>
+
+            <!-- VIEW: MENU -->
+            <div id="view-menu" class="hidden h-full flex flex-col">
+                <!-- Selected Table Banner -->
+                <div class="bg-blue-600 text-white p-2 text-center text-sm font-bold flex justify-between px-4 items-center shadow-md z-10">
+                    <span id="menu-table-name">No Table</span>
+                    <button onclick="switchView('tables')" class="text-xs bg-blue-800 px-3 py-1 rounded clickable">Change</button>
+                </div>
+                
+                <!-- Categories -->
+                <div class="overflow-x-auto whitespace-nowrap p-2 bg-white border-b flex space-x-2 ios-scroll" id="category-scroll">
+                    <button onclick="filterMenu('All')" class="cat-btn px-4 py-2 rounded-full bg-gray-800 text-white text-sm shadow clickable">All</button>
+                    <button onclick="filterMenu('Main')" class="cat-btn px-4 py-2 rounded-full bg-white text-gray-800 border text-sm clickable">Main</button>
+                    <button onclick="filterMenu('Appetizer')" class="cat-btn px-4 py-2 rounded-full bg-white text-gray-800 border text-sm clickable">Appetizers</button>
+                    <button onclick="filterMenu('Beverage')" class="cat-btn px-4 py-2 rounded-full bg-white text-gray-800 border text-sm clickable">Drinks</button>
+                    <button onclick="filterMenu('Dessert')" class="cat-btn px-4 py-2 rounded-full bg-white text-gray-800 border text-sm clickable">Desserts</button>
+                </div>
+
+                <!-- Items Grid -->
+                <div id="menu-grid" class="grid grid-cols-2 gap-3 p-3 pb-24 ios-scroll">
+                    <!-- Dynamic Items -->
+                </div>
+            </div>
+
+        </main>
+
+        <!-- CART FLOATING BAR (Visible only in Menu view) -->
+        <div id="cart-bar" class="hidden absolute bottom-20 left-4 right-4 bg-gray-900 text-white rounded-lg shadow-2xl p-4 flex justify-between items-center z-20 clickable" onclick="toggleCartModal()">
+            <div class="flex items-center">
+                <div class="bg-orange-500 rounded-full w-8 h-8 flex items-center justify-center text-xs font-bold mr-3" id="cart-count">0</div>
+                <div class="text-sm font-bold">View Cart</div>
+            </div>
+            <div class="font-bold text-lg" id="cart-total-preview">$0.00</div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="bg-white border-t flex justify-around items-center h-16 fixed bottom-0 w-full z-30 pb-safe">
+            <button onclick="switchView('tables')" class="nav-btn text-blue-600 flex flex-col items-center justify-center w-full h-full active:bg-gray-50 clickable" data-target="tables">
+                <i class="fas fa-th text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">Tables</span>
+            </button>
+            <button onclick="if(selectedTableId) switchView('menu'); else showToast('Select a table first', 'error')" class="nav-btn text-gray-400 flex flex-col items-center justify-center w-full h-full active:bg-gray-50 clickable" data-target="menu">
+                <i class="fas fa-utensils text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">Menu</span>
+            </button>
+            <button onclick="logout()" class="text-red-400 flex flex-col items-center justify-center w-full h-full active:bg-gray-50 clickable">
+                <i class="fas fa-sign-out-alt text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">Logout</span>
+            </button>
+        </nav>
+
+        <!-- CART MODAL OVERLAY -->
+        <div id="cart-modal" class="fixed inset-0 z-50 bg-black bg-opacity-50 hidden flex flex-col justify-end">
+            <div class="bg-white rounded-t-2xl shadow-2xl h-[80vh] flex flex-col fade-in pb-safe">
+                <div class="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                    <h3 class="font-bold text-lg">Current Order</h3>
+                    <button onclick="toggleCartModal()" class="text-gray-500 p-2 clickable"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div id="cart-list" class="flex-1 ios-scroll p-4 space-y-4">
+                    <p class="text-center text-gray-400 mt-10">Empty Cart</p>
+                </div>
+
+                <div class="p-4 border-t bg-gray-50 pb-8">
+                    <div class="flex justify-between items-center mb-4 text-xl font-bold">
+                        <span>Total</span>
+                        <span id="cart-modal-total">$0.00</span>
+                    </div>
+                    <button id="btn-place-order" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition flex justify-center items-center clickable">
+                        <span>Send to Kitchen</span>
+                        <i class="fas fa-paper-plane ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-[60] hidden text-sm font-bold transition-opacity duration-300"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, runTransaction, query, orderBy, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB5L9S3_diMaKQ7IyXEnyhEuWOHz8-QTvY",
+            authDomain: "my-pos-system-3683a.firebaseapp.com",
+            projectId: "my-pos-system-3683a",
+            storageBucket: "my-pos-system-3683a.firebasestorage.app",
+            messagingSenderId: "1040426979758",
+            appId: "1:1040426979758:web:da01b11782d68dac86f83f",
+            measurementId: "G-19J5SSFD9H"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // State
+        let currentUser = null;
+        let inventoryData = [];
+        let tablesData = [];
+        let activeOrders = [];
+        let cart = {}; 
+        let selectedTableId = null;
+        let selectedTableName = "";
+        let currentCategory = 'All';
+
+        // --- AUTH ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                // Safe string split for iOS 12
+                const emailParts = user.email ? user.email.split('@') : ['User'];
+                document.getElementById('user-display').textContent = emailParts[0];
+                
+                // Ensure User exists in DB
+                try {
+                    const userRef = doc(db, 'users', user.uid);
+                    const snap = await getDoc(userRef);
+                    if(!snap.exists()) await setDoc(userRef, { email: user.email, role: 'waiter' });
+                } catch(e) { console.error("User init error", e); }
+
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('hidden');
+                document.getElementById('app-view').classList.add('flex');
+                
+                initListeners();
+            } else {
+                document.getElementById('login-view').classList.remove('hidden');
+                document.getElementById('app-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('flex');
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const em = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            signInWithEmailAndPassword(auth, em, pass)
+                .catch(e => showToast(e.message));
+        });
+
+        window.logout = () => signOut(auth);
+
+        // --- LISTENERS ---
+        function initListeners() {
+            // Inventory
+            onSnapshot(query(collection(db, "inventory"), orderBy("name")), snap => {
+                inventoryData = snap.docs.map(d => Object.assign({id: d.id}, d.data())); // ES5-safe object merge
+                renderMenu();
+            });
+            // Tables
+            onSnapshot(query(collection(db, "tables"), orderBy("name")), snap => {
+                tablesData = snap.docs.map(d => Object.assign({id: d.id}, d.data()));
+                renderTables();
+            });
+            // Active Orders
+            onSnapshot(collection(db, "active_orders"), snap => {
+                activeOrders = snap.docs.map(d => Object.assign({id: d.id}, d.data()));
+                renderTables();
+            });
+        }
+
+        // --- UI LOGIC ---
+        window.switchView = (view) => {
+            if (view === 'menu' && !selectedTableId) return showToast('Select a table first');
+            
+            document.getElementById('view-tables').classList.add('hidden');
+            document.getElementById('view-menu').classList.add('hidden');
+            document.getElementById('cart-bar').classList.add('hidden');
+            
+            document.getElementById('view-' + view).classList.remove('hidden');
+            
+            if (view === 'menu') {
+                document.getElementById('cart-bar').classList.remove('hidden');
+                updateNavHighlight('menu');
+            } else {
+                updateNavHighlight('tables');
+            }
+        };
+
+        function updateNavHighlight(target) {
+            const btns = document.querySelectorAll('.nav-btn');
+            for (let i = 0; i < btns.length; i++) {
+                const btn = btns[i];
+                if(btn.dataset.target === target) {
+                    btn.classList.add('text-blue-600');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('text-blue-600');
+                    btn.classList.add('text-gray-400');
+                }
+            }
+        }
+
+        // --- TABLES ---
+        function renderTables() {
+            const grid = document.getElementById('tables-grid');
+            grid.innerHTML = '';
+            tablesData.forEach(t => {
+                const order = activeOrders.find(o => o.tableId === t.id);
+                let statusColor = "bg-green-100 border-green-300 text-green-800";
+                let statusText = "Free";
+                
+                if (order) {
+                    if (order.status === 'pending') {
+                        statusColor = "bg-yellow-100 border-yellow-300 text-yellow-800";
+                        statusText = "Cooking";
+                    } else if (order.status === 'served') {
+                        statusColor = "bg-blue-100 border-blue-300 text-blue-800";
+                        statusText = "Served";
+                    }
+                }
+
+                const btn = document.createElement('div');
+                btn.className = "p-4 rounded-xl border-2 shadow-sm active:scale-95 transition cursor-pointer flex flex-col justify-center items-center h-24 clickable " + statusColor;
+                btn.onclick = () => selectTable(t);
+                btn.innerHTML = `
+                    <span class="font-bold text-lg">${t.name}</span>
+                    <span class="text-xs font-semibold uppercase mt-1 opacity-75">${statusText}</span>
+                `;
+                grid.appendChild(btn);
+            });
+        }
+
+        function selectTable(table) {
+            selectedTableId = table.id;
+            selectedTableName = table.name;
+            document.getElementById('menu-table-name').textContent = table.name;
+            cart = {};
+            updateCartUI();
+            switchView('menu');
+        }
+
+        // --- MENU ---
+        window.filterMenu = (cat) => {
+            currentCategory = cat;
+            renderMenu();
+            
+            const btns = document.querySelectorAll('.cat-btn');
+            for(let i=0; i<btns.length; i++) {
+                const b = btns[i];
+                if (b.innerText === cat || (cat === 'All' && b.innerText === 'All')) {
+                    b.className = "cat-btn px-4 py-2 rounded-full bg-gray-800 text-white text-sm shadow transition clickable";
+                } else {
+                    b.className = "cat-btn px-4 py-2 rounded-full bg-white text-gray-800 border text-sm transition clickable";
+                }
+            }
+        };
+
+        function renderMenu() {
+            const grid = document.getElementById('menu-grid');
+            grid.innerHTML = '';
+            
+            const filtered = inventoryData.filter(i => currentCategory === 'All' || i.category === currentCategory);
+            
+            filtered.forEach(item => {
+                const el = document.createElement('div');
+                const hasStock = item.stock > 0;
+                const opacity = hasStock ? '' : 'opacity-50 grayscale';
+                el.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 active:scale-95 transition clickable " + opacity;
+                if (hasStock) el.onclick = () => addToCart(item);
+                el.innerHTML = `
+                    <div>
+                        <h4 class="font-bold text-sm leading-tight line-clamp-2">${item.name}</h4>
+                        <div class="text-xs text-gray-500 mt-1">${item.stock} left</div>
+                    </div>
+                    <div class="flex justify-between items-end mt-2">
+                        <span class="font-bold text-gray-800">$${item.price.toFixed(2)}</span>
+                        <div class="bg-gray-100 rounded-full w-6 h-6 flex items-center justify-center text-gray-600"><i class="fas fa-plus text-xs"></i></div>
+                    </div>
+                `;
+                grid.appendChild(el);
+            });
+        }
+
+        // --- CART ---
+        function addToCart(item) {
+            if (cart[item.id]) {
+                if (cart[item.id].quantity < item.stock) {
+                    cart[item.id].quantity++;
+                } else {
+                    return showToast("Max stock reached");
+                }
+            } else {
+                cart[item.id] = { quantity: 1, item: item };
+            }
+            updateCartUI();
+            showToast("Added " + item.name);
+        }
+
+        window.updateQuantity = (id, delta) => {
+            if (!cart[id]) return;
+            const newQty = cart[id].quantity + delta;
+            if (newQty > 0) {
+                if (newQty <= cart[id].item.stock) {
+                    cart[id].quantity = newQty;
+                } else {
+                    showToast("Max stock reached");
+                }
+            } else {
+                delete cart[id];
+            }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const items = Object.values(cart);
+            const count = items.reduce((sum, i) => sum + i.quantity, 0);
+            const total = items.reduce((sum, i) => sum + (i.quantity * i.item.price), 0);
+
+            document.getElementById('cart-count').textContent = count;
+            document.getElementById('cart-total-preview').textContent = '$' + total.toFixed(2);
+            document.getElementById('cart-modal-total').textContent = '$' + total.toFixed(2);
+
+            const list = document.getElementById('cart-list');
+            list.innerHTML = '';
+            if (items.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-400 mt-10">Empty Cart</p>';
+            } else {
+                items.forEach(i => {
+                    const el = document.createElement('div');
+                    el.className = "flex justify-between items-center bg-gray-50 p-3 rounded-lg";
+                    el.innerHTML = `
+                        <div class="flex-1">
+                            <div class="font-bold text-sm">${i.item.name}</div>
+                            <div class="text-xs text-gray-500">$${i.item.price} each</div>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-white rounded-lg px-2 py-1 shadow-sm border">
+                            <button onclick="updateQuantity('${i.item.id}', -1)" class="text-red-500 w-6 text-center font-bold clickable">-</button>
+                            <span class="text-sm font-bold w-4 text-center">${i.quantity}</span>
+                            <button onclick="updateQuantity('${i.item.id}', 1)" class="text-green-500 w-6 text-center font-bold clickable">+</button>
+                        </div>
+                    `;
+                    list.appendChild(el);
+                });
+            }
+        }
+
+        window.toggleCartModal = () => {
+            const m = document.getElementById('cart-modal');
+            if (m.classList.contains('hidden')) {
+                m.classList.remove('hidden');
+            } else {
+                m.classList.add('hidden');
+            }
+        };
+
+        // --- SUBMIT ORDER ---
+        document.getElementById('btn-place-order').addEventListener('click', async () => {
+            const items = Object.values(cart);
+            if (items.length === 0) return showToast("Cart is empty");
+
+            const btn = document.getElementById('btn-place-order');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                await runTransaction(db, async (t) => {
+                    // 1. Read & Validate
+                    const itemReads = [];
+                    for(const i of items) {
+                        const ref = doc(db, "inventory", i.item.id);
+                        const snap = await t.get(ref);
+                        if (!snap.exists()) throw "Item " + i.item.name + " missing";
+                        if (snap.data().stock < i.quantity) throw "Low stock: " + i.item.name;
+                        itemReads.push({ ref: ref, snap: snap, item: i });
+                    }
+
+                    // 2. Write
+                    for(const r of itemReads) {
+                        t.update(r.ref, { 
+                            stock: r.snap.data().stock - r.item.quantity,
+                            lastSold: new Date().toISOString()
+                        });
+                    }
+
+                    // Create Order
+                    const total = items.reduce((sum, i) => sum + (i.quantity * i.item.price), 0);
+                    const ref = doc(collection(db, "active_orders")); 
+                    
+                    // Simple map for iOS 12 compatibility (arrow functions fine, just keeping logic simple)
+                    const orderItems = items.map(i => ({
+                        name: i.item.name,
+                        qty: i.quantity,
+                        price: i.item.price,
+                        id: i.item.id,
+                        discount: 0
+                    }));
+
+                    t.set(ref, {
+                        tableId: selectedTableId,
+                        tableName: selectedTableName,
+                        status: 'pending',
+                        items: orderItems,
+                        total: total,
+                        timestamp: new Date().toISOString(),
+                        staffEmail: currentUser.email
+                    });
+                });
+
+                cart = {};
+                updateCartUI();
+                toggleCartModal();
+                switchView('tables');
+                showToast("Order Sent to Kitchen!");
+
+            } catch (e) {
+                const errMsg = typeof e === 'string' ? e : "Error processing order";
+                showToast(errMsg, 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        // --- TOAST ---
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.remove('hidden', 'opacity-0');
+            if(type==='error') t.classList.add('bg-red-600'); else t.classList.remove('bg-red-600');
+            
+            // Auto hide
+            setTimeout(() => {
+                t.classList.add('opacity-0');
+                setTimeout(() => t.classList.add('hidden'), 300);
+            }, 2000);
+        }
+
+    </script>
+</body>
+</html>
