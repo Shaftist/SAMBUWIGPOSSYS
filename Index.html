@@ -2,21 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sambuwig POS</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        ::-webkit-scrollbar { width: 6px; }
+        /* Mobile & Scroll Fixes */
+        body { -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Print Styles */
         @media print {
             body * { visibility: hidden; }
-            #receipt-area, #receipt-area * { visibility: visible; }
-            #receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+            #receipt-print-area, #receipt-print-area * { visibility: visible; }
+            #receipt-print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+            @page { margin: 0; size: auto; }
         }
     </style>
 </head>
@@ -29,7 +38,7 @@
     </div>
 
     <!-- RECEIPT AREA -->
-    <div id="receipt-area" class="hidden bg-white p-4 max-w-sm mx-auto text-xs font-mono text-black">
+    <div id="receipt-print-area" class="hidden bg-white p-4 max-w-[300px] mx-auto text-xs font-mono text-black">
         <div class="text-center mb-2">
             <h2 class="font-bold text-lg uppercase">Sambuwig</h2>
             <p>Official Receipt</p>
@@ -40,7 +49,7 @@
             <p>Staff: <span id="r-staff"></span></p>
             <p>Type: <span id="r-type"></span></p>
         </div>
-        <div id="r-customer" class="hidden border-b border-black pb-1 mb-1"></div>
+        <div id="r-customer" class="hidden border-b border-black pb-1 mb-1 italic"></div>
         <table class="w-full mb-2">
             <thead><tr class="text-left"><th class="py-1">Item</th><th class="text-right">Qty</th><th class="text-right">Total</th></tr></thead>
             <tbody id="r-items"></tbody>
@@ -53,185 +62,226 @@
 
     <!-- MODALS -->
     <!-- Discount Modal -->
-    <div id="discount-modal" class="fixed inset-0 z-50 bg-black bg-opacity-50 hidden flex items-center justify-center">
-        <div class="bg-white p-6 rounded shadow-lg w-96">
+    <div id="discount-modal" class="fixed inset-0 z-50 bg-black bg-opacity-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded shadow-lg w-full max-w-sm">
             <h3 class="font-bold text-lg mb-4">Apply Discount</h3>
-            <div class="space-y-3">
-                <button onclick="applyDiscountType('manual')" class="w-full bg-gray-100 p-3 rounded text-left hover:bg-gray-200">Manual Percentage</button>
-                <button onclick="applyDiscountType('pwd')" class="w-full bg-blue-100 p-3 rounded text-left hover:bg-blue-200 text-blue-800">PWD / Senior (20%)</button>
-                <button onclick="applyDiscountType('employee')" class="w-full bg-purple-100 p-3 rounded text-left hover:bg-purple-200 text-purple-800">Employee (10%)</button>
+            <div id="disc-selection" class="space-y-3">
+                <button onclick="showDiscInput('manual')" class="w-full bg-gray-100 p-3 rounded text-left hover:bg-gray-200 font-bold">Manual Percentage</button>
+                <button onclick="showDiscInput('pwd')" class="w-full bg-blue-100 p-3 rounded text-left hover:bg-blue-200 text-blue-800 font-bold">PWD / Senior (20%)</button>
+                <button onclick="showDiscInput('employee')" class="w-full bg-purple-100 p-3 rounded text-left hover:bg-purple-200 text-purple-800 font-bold">Employee (10%)</button>
             </div>
-            <div id="discount-inputs" class="mt-4 hidden space-y-2">
-                <input type="text" id="disc-id" class="w-full border p-2 rounded hidden" placeholder="ID Number / Email">
-                <input type="password" id="disc-pass" class="w-full border p-2 rounded hidden" placeholder="Password">
-                <input type="number" id="disc-percent" class="w-full border p-2 rounded hidden" placeholder="Percentage %">
-                <button onclick="confirmDiscount()" class="w-full bg-green-600 text-white font-bold py-2 rounded">Apply</button>
+            
+            <div id="disc-form" class="hidden mt-4 space-y-3">
+                <p id="disc-label" class="text-xs font-bold uppercase text-gray-500"></p>
+                <input type="text" id="disc-id" class="w-full border p-2 rounded hidden" placeholder="ID Number">
+                <input type="password" id="disc-pass" class="w-full border p-2 rounded hidden" placeholder="Verify Password">
+                <input type="number" id="disc-percent" class="w-full border p-2 rounded hidden" placeholder="Percentage (0-100)">
+                <div class="flex gap-2">
+                    <button onclick="applyDiscount()" class="flex-1 bg-green-600 text-white font-bold py-2 rounded">Apply</button>
+                    <button onclick="resetDiscModal()" class="flex-1 bg-gray-300 text-gray-700 font-bold py-2 rounded">Back</button>
+                </div>
             </div>
             <button onclick="closeModal('discount-modal')" class="mt-4 text-red-500 text-sm underline w-full text-center">Cancel</button>
         </div>
     </div>
 
-    <!-- Edit Item Modal -->
-    <div id="edit-item-modal" class="fixed inset-0 z-50 bg-black bg-opacity-50 hidden flex items-center justify-center">
-        <div class="bg-white p-6 rounded shadow-lg w-96">
+    <!-- Edit Inventory Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 bg-black bg-opacity-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded shadow-lg w-full max-w-sm">
             <h3 class="font-bold text-lg mb-4">Edit Item</h3>
             <input type="hidden" id="edit-id">
-            <div class="space-y-2">
-                <label class="block text-xs font-bold">Name</label>
-                <input type="text" id="edit-name" class="w-full border p-2 rounded">
-                <label class="block text-xs font-bold">Price</label>
-                <input type="number" id="edit-price" step="0.01" class="w-full border p-2 rounded">
-                <label class="block text-xs font-bold">Stock</label>
-                <input type="number" id="edit-stock" class="w-full border p-2 rounded">
-                <button onclick="saveItemEdit()" class="w-full bg-blue-600 text-white font-bold py-2 rounded mt-2">Save Changes</button>
+            <input type="hidden" id="edit-col">
+            <div class="space-y-3">
+                <input type="text" id="edit-name" class="w-full border p-2 rounded" placeholder="Name">
+                <input type="number" id="edit-price" class="w-full border p-2 rounded" placeholder="Price">
+                <input type="number" id="edit-stock" class="w-full border p-2 rounded" placeholder="Stock">
+                <button onclick="saveEdit()" class="w-full bg-blue-600 text-white font-bold py-2 rounded">Save Changes</button>
             </div>
-            <button onclick="closeModal('edit-item-modal')" class="mt-4 text-gray-500 w-full text-center">Close</button>
+            <button onclick="closeModal('edit-modal')" class="mt-2 text-gray-500 w-full text-center text-sm">Close</button>
         </div>
     </div>
 
-    <!-- MAIN APP -->
-    <div id="app-view" class="flex-1 flex h-full">
+    <!-- LOGIN SCREEN -->
+    <div id="login-view" class="fixed inset-0 z-[60] bg-gray-900 flex flex-col justify-center items-center p-6">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2"><i class="fas fa-utensils text-orange-500 mr-2"></i>Sambuwig POS</h1>
+            <p class="text-gray-500 text-sm mb-6">Secure Access</p>
+            <form id="login-form" class="space-y-4">
+                <input type="email" id="email" class="w-full p-3 border rounded" placeholder="Email" required>
+                <input type="password" id="password" class="w-full p-3 border rounded" placeholder="Password" required>
+                <button type="submit" class="w-full bg-orange-600 text-white font-bold py-3 rounded hover:bg-orange-700">Login</button>
+            </form>
+            <div id="login-error" class="text-red-500 text-sm mt-4 hidden"></div>
+        </div>
+    </div>
+
+    <!-- MAIN APP LAYOUT -->
+    <div id="app-view" class="hidden h-full flex flex-col md:flex-row relative">
+        
+        <!-- MOBILE HEADER -->
+        <div class="md:hidden bg-gray-900 text-white p-4 flex justify-between items-center z-40">
+            <div class="font-bold text-lg"><i class="fas fa-utensils text-orange-500 mr-2"></i>Sambuwig</div>
+            <button onclick="toggleSidebar()"><i class="fas fa-bars text-2xl"></i></button>
+        </div>
+
         <!-- SIDEBAR -->
-        <aside class="w-64 bg-gray-900 text-white flex flex-col shadow-xl z-20">
-            <div class="p-6 border-b border-gray-800 font-bold text-xl text-orange-500"><i class="fas fa-utensils mr-2"></i>Sambuwig</div>
+        <aside id="sidebar" class="bg-gray-900 text-white w-64 flex-shrink-0 flex flex-col absolute inset-y-0 left-0 transform -translate-x-full md:translate-x-0 md:relative transition duration-300 z-50 h-full shadow-2xl md:shadow-none">
+            <div class="p-6 border-b border-gray-800 font-bold text-xl hidden md:block text-orange-500">
+                <i class="fas fa-utensils mr-2"></i>Sambuwig
+            </div>
+            
             <nav class="flex-1 p-2 space-y-1 overflow-y-auto text-sm">
-                <button onclick="switchTab('dashboard')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300" id="nav-dashboard"><i class="fas fa-chart-line w-6"></i> Dashboard</button>
-                <button onclick="switchTab('pos')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-green-400" id="nav-pos"><i class="fas fa-cash-register w-6"></i> POS & Order</button>
-                <button onclick="switchTab('kitchen')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-yellow-400" id="nav-kitchen"><i class="fas fa-fire w-6"></i> Kitchen</button>
-                <button onclick="switchTab('cashier')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-blue-400" id="nav-cashier"><i class="fas fa-wallet w-6"></i> Cashier</button>
+                <button onclick="switchTab('dashboard')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300"><i class="fas fa-chart-line w-6 text-center"></i> Dashboard</button>
+                
+                <div class="pt-4 px-3 text-xs font-bold text-gray-500 uppercase">Operations</div>
+                <button onclick="switchTab('pos')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-green-400 font-bold"><i class="fas fa-cash-register w-6 text-center"></i> POS & Order</button>
+                <button onclick="switchTab('kitchen')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-yellow-400"><i class="fas fa-fire w-6 text-center"></i> Kitchen View</button>
+                <button onclick="switchTab('cashier')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-blue-400"><i class="fas fa-wallet w-6 text-center"></i> Cashier</button>
+
                 <div class="pt-4 px-3 text-xs font-bold text-gray-500 uppercase">Management</div>
-                <button onclick="switchTab('inventory')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300" id="nav-inventory"><i class="fas fa-boxes w-6"></i> Inventory</button>
-                <button onclick="switchTab('ingredients')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300" id="nav-ingredients"><i class="fas fa-carrot w-6"></i> Ingredients</button>
-                <button onclick="switchTab('history')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300" id="nav-history"><i class="fas fa-history w-6"></i> History</button>
+                <button onclick="switchTab('history')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300"><i class="fas fa-history w-6 text-center"></i> History</button>
+                <button onclick="switchTab('inventory')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300"><i class="fas fa-boxes w-6 text-center"></i> Inventory</button>
+                <button onclick="switchTab('ingredients')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300"><i class="fas fa-carrot w-6 text-center"></i> Ingredients</button>
+                <button onclick="switchTab('settings')" class="nav-btn w-full text-left p-3 rounded hover:bg-gray-800 text-gray-300"><i class="fas fa-cog w-6 text-center"></i> Settings</button>
             </nav>
+
             <div class="p-4 border-t border-gray-800">
-                <div class="text-xs text-gray-500 mb-1" id="user-role">Role: Loading...</div>
-                <button onclick="location.reload()" class="text-red-400 hover:text-white text-xs font-bold">LOGOUT</button>
+                <div class="text-xs text-gray-500 truncate mb-2" id="user-display"></div>
+                <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 py-2 rounded text-xs font-bold text-white">LOGOUT</button>
             </div>
         </aside>
 
+        <!-- OVERLAY FOR MOBILE -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
+
         <!-- CONTENT -->
-        <main class="flex-1 bg-gray-50 relative overflow-hidden flex flex-col">
+        <main class="flex-1 bg-gray-50 relative overflow-hidden flex flex-col w-full">
             
-            <!-- DASHBOARD -->
-            <div id="tab-dashboard" class="content-tab p-6 overflow-y-auto h-full">
-                <h2 class="text-2xl font-bold mb-6">Overview</h2>
-                <div class="grid grid-cols-3 gap-6 mb-6">
+            <!-- DASHBOARD TAB -->
+            <div id="tab-dashboard" class="content-tab p-4 md:p-6 overflow-y-auto h-full fade-in">
+                <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
                     <div class="bg-white p-6 rounded shadow border-l-4 border-green-500">
                         <div class="text-gray-500 text-xs font-bold uppercase">Sales (Today)</div>
                         <div class="text-3xl font-bold" id="dash-sales">₱0.00</div>
                     </div>
                     <div class="bg-white p-6 rounded shadow border-l-4 border-orange-500">
-                        <div class="text-gray-500 text-xs font-bold uppercase">Pending Orders</div>
+                        <div class="text-gray-500 text-xs font-bold uppercase">Kitchen Pending</div>
                         <div class="text-3xl font-bold" id="dash-pending">0</div>
                     </div>
                     <div class="bg-white p-6 rounded shadow border-l-4 border-blue-500">
-                        <div class="text-gray-500 text-xs font-bold uppercase">Payables (Uncollected)</div>
-                        <div class="text-3xl font-bold text-blue-600" id="dash-payable">₱0.00</div>
+                        <div class="text-gray-500 text-xs font-bold uppercase">Unpaid Payables</div>
+                        <div class="text-3xl font-bold text-blue-600" id="dash-payables">₱0.00</div>
                     </div>
+                </div>
+                <div class="bg-white p-4 rounded shadow h-64">
+                    <canvas id="salesChart"></canvas>
                 </div>
             </div>
 
-            <!-- POS -->
-            <div id="tab-pos" class="content-tab hidden h-full flex flex-col md:flex-row">
-                <!-- Menu Area -->
-                <div class="flex-1 flex flex-col bg-white border-r">
-                    <!-- Filters -->
+            <!-- POS TAB -->
+            <div id="tab-pos" class="content-tab hidden h-full flex-col md:flex-row fade-in">
+                <!-- Menu -->
+                <div class="flex-1 flex flex-col bg-white border-r relative">
                     <div class="p-2 border-b flex gap-2 overflow-x-auto bg-gray-50 whitespace-nowrap" id="pos-cats">
-                        <!-- JS Injects Categories -->
+                        <!-- JS Injected -->
                     </div>
-                    <div class="p-2 border-b bg-white">
-                        <input type="text" id="pos-search" placeholder="Search item..." class="w-full border rounded p-2 text-sm bg-gray-100">
+                    <div class="p-2 border-b">
+                        <input type="text" id="pos-search" placeholder="Search item..." class="w-full border rounded p-2 text-sm bg-gray-100 focus:bg-white transition">
                     </div>
-                    <!-- Grid -->
-                    <div id="pos-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 lg:grid-cols-4 gap-4 bg-gray-100"></div>
+                    <div id="pos-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 bg-gray-100 content-start pb-20 md:pb-4"></div>
                 </div>
-                <!-- Cart Area -->
-                <div class="w-96 flex flex-col bg-white shadow-xl z-10">
-                    <div class="p-4 border-b bg-gray-50">
-                        <h3 class="font-bold text-lg">Current Order</h3>
-                        <div class="flex gap-2 mt-2">
-                            <select id="pos-table-select" class="flex-1 border rounded p-2 font-bold text-sm">
+                <!-- Cart -->
+                <div class="w-full md:w-96 flex flex-col bg-white shadow-xl z-30 h-1/2 md:h-full border-t md:border-l absolute bottom-0 md:relative">
+                    <div class="p-3 border-b bg-gray-50 flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold">Current Order</h3>
+                            <select id="pos-table" class="text-sm border rounded bg-white p-1 mt-1 w-40 font-bold">
                                 <option value="">Select Table...</option>
                             </select>
-                            <button onclick="clearCart()" class="text-red-500 text-xs font-bold px-2 hover:underline">CLEAR</button>
                         </div>
+                        <button onclick="cart={}; renderCart()" class="text-red-500 text-xs font-bold">CLEAR</button>
                     </div>
-                    <div id="pos-cart" class="flex-1 overflow-y-auto p-2 space-y-2">
-                        <div class="text-center text-gray-400 mt-10 italic">Select items to order</div>
+                    <div id="pos-cart" class="flex-1 overflow-y-auto p-3 space-y-2">
+                        <div class="text-center text-gray-400 mt-10 italic text-sm">Cart is empty</div>
                     </div>
                     <div class="p-4 border-t bg-gray-50">
-                        <div class="flex justify-between text-xl font-bold mb-4"><span>Total</span><span id="pos-total">₱0.00</span></div>
-                        <button onclick="submitOrder()" id="btn-submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow">
+                        <div class="flex justify-between text-xl font-bold mb-3"><span>Total</span><span id="pos-total">₱0.00</span></div>
+                        <button onclick="submitOrder()" id="btn-submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow transition">
                             Send to Kitchen
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- KITCHEN -->
-            <div id="tab-kitchen" class="content-tab hidden p-6 overflow-y-auto h-full bg-gray-200">
-                <h2 class="text-2xl font-bold mb-4 flex items-center"><i class="fas fa-fire text-orange-500 mr-2"></i> Kitchen Display</h2>
-                <div id="kitchen-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <!-- KITCHEN TAB -->
+            <div id="tab-kitchen" class="content-tab hidden p-4 md:p-6 overflow-y-auto h-full bg-gray-200 fade-in">
+                <h2 class="text-2xl font-bold mb-4 flex items-center text-gray-700"><i class="fas fa-fire text-orange-500 mr-2"></i> Kitchen Display</h2>
+                <div id="kitchen-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20"></div>
             </div>
 
-            <!-- CASHIER -->
-            <div id="tab-cashier" class="content-tab hidden p-6 h-full flex flex-col bg-gray-100">
+            <!-- CASHIER TAB -->
+            <div id="tab-cashier" class="content-tab hidden p-4 md:p-6 h-full flex flex-col bg-gray-100 fade-in">
                 <h2 class="text-2xl font-bold mb-4 text-blue-900">Cashiering</h2>
-                <div class="flex gap-6 h-full">
-                    <div class="flex-1 overflow-y-auto grid grid-cols-3 gap-4 content-start" id="cashier-tables"></div>
-                    <div class="w-96 bg-white rounded shadow p-4 flex flex-col" id="cashier-panel">
-                        <div class="text-center text-gray-400 italic mt-20">Select an active table</div>
+                <div class="flex flex-col md:flex-row gap-6 h-full">
+                    <div class="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 content-start pb-20" id="cashier-grid"></div>
+                    <div class="w-full md:w-96 bg-white rounded shadow p-4 flex flex-col h-1/2 md:h-auto border border-gray-200" id="cashier-panel">
+                        <div class="text-center text-gray-400 italic mt-10">Select a table or order to process payment</div>
                     </div>
                 </div>
             </div>
 
-            <!-- INVENTORY (Menu Items) -->
-            <div id="tab-inventory" class="content-tab hidden p-6 overflow-y-auto h-full">
+            <!-- INVENTORY TAB -->
+            <div id="tab-inventory" class="content-tab hidden p-4 md:p-6 overflow-y-auto h-full fade-in">
                 <div class="flex justify-between mb-4">
                     <h2 class="text-2xl font-bold">Menu Inventory</h2>
-                    <button onclick="promptAddItem('inventory')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold">Add Item</button>
+                    <button onclick="addItem('inventory')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold shadow">Add Item</button>
                 </div>
                 <div class="bg-white rounded shadow overflow-hidden">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-gray-100 uppercase text-xs font-bold text-gray-600"><tr><th class="p-3">Name</th><th class="p-3">Cat</th><th class="p-3">Price</th><th class="p-3">Stock</th><th class="p-3 text-right">Action</th></tr></thead>
-                        <tbody id="inv-list"></tbody>
-                    </table>
+                    <table class="w-full text-sm text-left"><thead class="bg-gray-100 font-bold text-gray-600"><tr><th class="p-3">Item</th><th class="p-3">Cat</th><th class="p-3">Price</th><th class="p-3">Stock</th><th class="p-3 text-right">Edit</th></tr></thead><tbody id="inv-list"></tbody></table>
                 </div>
             </div>
 
-            <!-- INGREDIENTS (Raw Materials) -->
-            <div id="tab-ingredients" class="content-tab hidden p-6 overflow-y-auto h-full">
+            <!-- INGREDIENTS TAB -->
+            <div id="tab-ingredients" class="content-tab hidden p-4 md:p-6 overflow-y-auto h-full fade-in">
                 <div class="flex justify-between mb-4">
                     <h2 class="text-2xl font-bold text-gray-700">Ingredients Stock</h2>
-                    <button onclick="promptAddItem('ingredients')" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold">Add Ingredient</button>
+                    <button onclick="addItem('ingredients')" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold shadow">Add Ingredient</button>
                 </div>
                 <div class="bg-white rounded shadow overflow-hidden">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-green-50 uppercase text-xs font-bold text-green-800"><tr><th class="p-3">Item Name</th><th class="p-3">Unit</th><th class="p-3">Quantity</th><th class="p-3 text-right">Action</th></tr></thead>
-                        <tbody id="ing-list"></tbody>
-                    </table>
+                    <table class="w-full text-sm text-left"><thead class="bg-green-50 font-bold text-green-800"><tr><th class="p-3">Name</th><th class="p-3">Unit</th><th class="p-3">Qty</th><th class="p-3 text-right">Action</th></tr></thead><tbody id="ing-list"></tbody></table>
                 </div>
             </div>
 
-            <!-- HISTORY -->
-            <div id="tab-history" class="content-tab hidden p-6 overflow-y-auto h-full">
+            <!-- HISTORY TAB -->
+            <div id="tab-history" class="content-tab hidden p-4 md:p-6 overflow-y-auto h-full fade-in">
                 <h2 class="text-2xl font-bold mb-4">Transaction History</h2>
                 <div class="bg-white rounded shadow overflow-hidden">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-gray-100 uppercase text-xs"><tr><th class="p-3">Date</th><th class="p-3">Type</th><th class="p-3">Details</th><th class="p-3 text-right">Amount</th><th class="p-3 text-right">Actions</th></tr></thead>
-                        <tbody id="hist-list"></tbody>
-                    </table>
+                    <table class="w-full text-sm text-left"><thead class="bg-gray-100 font-bold"><tr><th class="p-3">Date</th><th class="p-3">Type</th><th class="p-3">Details</th><th class="p-3 text-right">Amount</th><th class="p-3 text-right">Actions</th></tr></thead><tbody id="hist-list"></tbody></table>
+                </div>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div id="tab-settings" class="content-tab hidden p-6 fade-in">
+                <h2 class="text-2xl font-bold mb-4">Settings</h2>
+                <div class="bg-white p-6 rounded shadow max-w-md">
+                    <h3 class="font-bold mb-2">Table Management</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-table-name" class="border p-2 flex-1 rounded" placeholder="Table Name">
+                        <button onclick="addTable()" class="bg-blue-600 text-white px-4 rounded font-bold">Add</button>
+                    </div>
+                    <div id="settings-tables" class="mt-4 space-y-2 max-h-60 overflow-y-auto"></div>
                 </div>
             </div>
 
         </main>
     </div>
 
+    <!-- Firebase Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc, updateDoc, getDoc, runTransaction, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc, updateDoc, getDoc, runTransaction, limit, writeBatch } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
         // CONFIG
         const firebaseConfig = { apiKey: "AIzaSyB5L9S3_diMaKQ7IyXEnyhEuWOHz8-QTvY", authDomain: "my-pos-system-3683a.firebaseapp.com", projectId: "my-pos-system-3683a", storageBucket: "my-pos-system-3683a.firebasestorage.app", messagingSenderId: "1040426979758", appId: "1:1040426979758:web:da01b11782d68dac86f83f", measurementId: "G-19J5SSFD9H" };
@@ -243,210 +293,191 @@
         const CATEGORIES = ["Appetizers", "Soup", "Salad", "Pasta", "Seafood", "Chicken", "Beef", "Pork", "Vegetable", "Breakfast", "Sandwiches", "Desserts", "Juice", "Pitcher", "Soda", "Hot", "Shakes"];
         
         // STATE
-        let user = null;
-        let role = 'admin'; // For demo, default to admin power. In prod, fetch from 'users' collection.
-        let inventory = [];
-        let ingredients = [];
-        let activeOrders = [];
-        let tables = ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6", "Table 7", "Table 8"];
+        let currentUser = null;
+        let inventory = [], ingredients = [], activeOrders = [], salesHistory = [], tables = [];
         let cart = {}; 
-        let salesHistory = [];
-        
-        // --- INIT ---
-        onAuthStateChanged(auth, async (u) => {
-            if(!u) { 
-                const e = prompt("Admin Login Email:", "admin@smbwg.com"); 
-                const p = prompt("Password:", "password"); 
-                if(e && p) await signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message)); 
-            } else {
-                user = u;
-                document.getElementById('user-role').textContent = "Logged in: " + u.email;
+        let currentPosCat = 'Appetizers';
+        let discountTargetId = null;
+
+        // --- AUTH ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-display').textContent = user.email;
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('hidden');
                 checkPayables();
                 startListeners();
                 initUI();
+            } else {
+                document.getElementById('login-view').classList.remove('hidden');
+                document.getElementById('app-view').classList.add('hidden');
             }
         });
 
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value)
+                .catch(err => { document.getElementById('login-error').textContent = err.message; document.getElementById('login-error').classList.remove('hidden'); });
+        });
+        window.logout = () => signOut(auth);
+
+        // --- INIT & LISTENERS ---
         function initUI() {
-            const catDiv = document.getElementById('pos-cats');
-            catDiv.innerHTML = `<button onclick="filterPos('All')" class="px-4 py-2 bg-gray-800 text-white rounded font-bold text-xs">All</button>`;
+            const cDiv = document.getElementById('pos-cats');
+            cDiv.innerHTML = '';
             CATEGORIES.forEach(c => {
-                catDiv.innerHTML += `<button onclick="filterPos('${c}')" class="px-4 py-2 bg-white border rounded font-bold text-xs hover:bg-gray-100">${c}</button>`;
+                cDiv.innerHTML += `<button onclick="filterPos('${c}')" class="px-4 py-2 bg-white border rounded font-bold text-xs hover:bg-gray-100 whitespace-nowrap transition">${c}</button>`;
             });
-            const tblSel = document.getElementById('pos-table-select');
-            tables.forEach(t => tblSel.add(new Option(t, t)));
         }
 
-        // --- DATA SYNC ---
         function startListeners() {
-            onSnapshot(query(collection(db, "inventory"), orderBy("name")), snap => {
-                inventory = snap.docs.map(d => ({id:d.id, ...d.data()}));
-                renderPosGrid(); renderInventory();
-            });
-            onSnapshot(query(collection(db, "ingredients"), orderBy("name")), snap => {
-                ingredients = snap.docs.map(d => ({id:d.id, ...d.data()}));
-                renderIngredients();
-            });
-            onSnapshot(collection(db, "active_orders"), snap => {
-                activeOrders = snap.docs.map(d => ({id:d.id, ...d.data()}));
-                renderKitchen(); renderCashier(); updateDashboard();
-            });
-            onSnapshot(query(collection(db, "sales"), orderBy("timestamp", "desc")), snap => {
-                salesHistory = snap.docs.map(d => ({id:d.id, ...d.data()}));
-                renderHistory(); updateDashboard();
-            });
+            onSnapshot(query(collection(db, "inventory"), orderBy("name")), snap => { inventory = snap.docs.map(d => ({id:d.id, ...d.data()})); renderPosGrid(); renderInventory(); });
+            onSnapshot(query(collection(db, "ingredients"), orderBy("name")), snap => { ingredients = snap.docs.map(d => ({id:d.id, ...d.data()})); renderIngredients(); });
+            onSnapshot(collection(db, "active_orders"), snap => { activeOrders = snap.docs.map(d => ({id:d.id, ...d.data()})); renderKitchen(); renderCashier(); updateDashboard(); });
+            onSnapshot(query(collection(db, "sales"), orderBy("timestamp", "desc"), limit(100)), snap => { salesHistory = snap.docs.map(d => ({id:d.id, ...d.data()})); renderHistory(); updateDashboard(); });
+            onSnapshot(query(collection(db, "tables"), orderBy("name")), snap => { tables = snap.docs.map(d => ({id:d.id, ...d.data()})); renderTableSelect(); renderSettingsTables(); });
         }
 
-        // --- DASHBOARD ---
+        // --- DASHBOARD & ALERTS ---
         function updateDashboard() {
             const today = new Date().toISOString().split('T')[0];
             const salesToday = salesHistory.filter(s => s.timestamp.startsWith(today)).reduce((a,b) => a + (b.total||0), 0);
+            const totalPayable = salesHistory.filter(s => s.paymentMethod === 'Payable').reduce((a,b) => a + (b.total||0), 0);
+            
             document.getElementById('dash-sales').textContent = '₱' + salesToday.toLocaleString();
             document.getElementById('dash-pending').textContent = activeOrders.length;
+            document.getElementById('dash-payables').textContent = '₱' + totalPayable.toLocaleString();
             
-            // Check payables older than 3 days logic handled in checkPayables, but dashboard shows total outstanding
-            const totalPayable = salesHistory.filter(s => s.paymentMethod === 'Payable').reduce((a,b) => a + b.total, 0);
-            document.getElementById('dash-payable').textContent = '₱' + totalPayable.toLocaleString();
+            // Chart
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            // Simplified chart logic...
         }
 
         function checkPayables() {
-            // Simple check: fetch sales where type is Payable and date is > 3 days ago
-            // For now, just a visual check on history load or a simple query
-            // In a real app, use a query. Here we rely on the salesHistory synced array
+            // Check past 3 days for payables
+            // Mock logic: assumes loaded salesHistory contains them. 
             setTimeout(() => {
-                const threeDaysAgo = new Date();
-                threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                const overdue = salesHistory.filter(s => s.paymentMethod === 'Payable' && new Date(s.timestamp) < threeDaysAgo);
-                if(overdue.length > 0) showToast(`Warning: ${overdue.length} overdue payables found!`);
-            }, 2000);
+                const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - 3);
+                const overdue = salesHistory.filter(s => s.paymentMethod === 'Payable' && new Date(s.timestamp) < limitDate);
+                if (overdue.length) showToast(`Reminder: ${overdue.length} overdue payables.`);
+            }, 3000);
         }
 
-        // --- POS SYSTEM ---
-        let currentCat = 'All';
-        window.filterPos = (c) => { currentCat = c; renderPosGrid(); }
+        // --- POS ---
+        window.filterPos = (c) => { currentPosCat = c; renderPosGrid(); }
         
         function renderPosGrid() {
             const grid = document.getElementById('pos-grid');
             const search = document.getElementById('pos-search').value.toLowerCase();
             grid.innerHTML = '';
             
-            const filtered = inventory.filter(i => 
-                (currentCat === 'All' || i.category === currentCat) && 
-                (i.name.toLowerCase().includes(search))
-            );
-
+            const filtered = inventory.filter(i => (i.category === currentPosCat) && i.name.toLowerCase().includes(search));
+            
             filtered.forEach(i => {
-                const div = document.createElement('div');
-                div.className = `p-3 bg-white rounded shadow cursor-pointer border hover:border-orange-500 transition ${i.stock<=0?'opacity-50 grayscale':''}`;
-                div.innerHTML = `<div class="font-bold text-sm truncate">${i.name}</div><div class="flex justify-between mt-2 text-xs"><span class="font-bold">₱${i.price}</span><span>Qty: ${i.stock}</span></div>`;
-                if(i.stock>0) div.onclick = () => addToCart(i);
-                grid.appendChild(div);
+                const el = document.createElement('div');
+                el.className = `bg-white p-3 rounded shadow cursor-pointer border hover:border-orange-500 transition ${i.stock<=0?'opacity-50 grayscale':''}`;
+                el.onclick = () => { if(i.stock>0) addToCart(i); };
+                el.innerHTML = `<div class="font-bold text-sm truncate">${i.name}</div><div class="flex justify-between mt-2 text-xs"><span class="font-bold">₱${i.price}</span><span>Qty: ${i.stock}</span></div>`;
+                grid.appendChild(el);
             });
         }
         document.getElementById('pos-search').addEventListener('input', renderPosGrid);
 
         function addToCart(item) {
-            if(!cart[item.id]) cart[item.id] = { ...item, qty: 0, discount: 0, discType: 'None' };
+            if(!cart[item.id]) cart[item.id] = { ...item, qty: 0, discount: 0, discType: '' };
             if(cart[item.id].qty < item.stock) cart[item.id].qty++;
-            else showToast("Stock Limit Reached");
+            else showToast("Stock Limit");
             renderCart();
         }
-
-        // --- DISCOUNT LOGIC ---
-        let discountTargetId = null;
-        window.openDiscountModal = (id) => {
-            discountTargetId = id;
-            document.getElementById('discount-modal').classList.remove('hidden');
-            document.getElementById('discount-inputs').classList.add('hidden');
-        };
-
-        window.applyDiscountType = (type) => {
-            const inputs = document.getElementById('discount-inputs');
-            const idInput = document.getElementById('disc-id');
-            const passInput = document.getElementById('disc-pass');
-            const pctInput = document.getElementById('disc-percent');
-            
-            inputs.classList.remove('hidden');
-            idInput.classList.add('hidden'); passInput.classList.add('hidden'); pctInput.classList.add('hidden');
-            idInput.value = ''; passInput.value = ''; pctInput.value = '';
-
-            document.getElementById('discount-modal').dataset.type = type;
-
-            if (type === 'pwd') {
-                idInput.placeholder = "Enter ID Number";
-                idInput.classList.remove('hidden');
-            } else if (type === 'employee') {
-                idInput.placeholder = "Employee Email (@smbwg.com)";
-                idInput.classList.remove('hidden');
-                passInput.classList.remove('hidden');
-            } else {
-                pctInput.classList.remove('hidden');
-            }
-        };
-
-        window.confirmDiscount = () => {
-            const type = document.getElementById('discount-modal').dataset.type;
-            const item = cart[discountTargetId];
-            let percent = 0;
-            let ref = '';
-
-            if (type === 'pwd') {
-                ref = document.getElementById('disc-id').value;
-                if(!ref) return alert("ID Required");
-                percent = 20;
-            } else if (type === 'employee') {
-                const email = document.getElementById('disc-id').value;
-                if(!email.endsWith('@smbwg.com')) return alert("Invalid Employee Email");
-                // In real app, verify password against DB. Here simulation.
-                ref = email;
-                percent = 10;
-                showToast(`Notification sent to ${email}`);
-            } else {
-                percent = parseFloat(document.getElementById('disc-percent').value);
-            }
-
-            if(item) {
-                item.discount = percent;
-                item.discType = type;
-                item.discRef = ref;
-            }
-            renderCart();
-            closeModal('discount-modal');
-        };
 
         function renderCart() {
             const div = document.getElementById('pos-cart');
             div.innerHTML = '';
             let total = 0;
+            
             Object.values(cart).forEach(i => {
-                const discountedPrice = i.price * ((100 - i.discount) / 100);
-                const sub = discountedPrice * i.qty;
-                total += sub;
+                const price = i.price * ((100 - i.discount) / 100);
+                total += price * i.qty;
                 div.innerHTML += `
                     <div class="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
-                        <div class="flex-1">
-                            <div class="font-bold">${i.name}</div>
-                            <div class="text-xs text-gray-500">₱${discountedPrice.toFixed(2)} x ${i.qty} ${i.discount>0 ? `<span class="text-red-500">(-${i.discount}%)</span>` : ''}</div>
+                        <div class="flex-1 overflow-hidden">
+                            <div class="font-bold truncate">${i.name}</div>
+                            <div class="text-xs text-gray-500">₱${price.toFixed(2)} x ${i.qty} ${i.discount?`<span class="text-red-500">(-${i.discount}%)</span>`:''}</div>
                         </div>
-                        <button onclick="openDiscountModal('${i.id}')" class="text-blue-500 px-2"><i class="fas fa-tag"></i></button>
-                        <button onclick="delete cart['${i.id}']; renderCart()" class="text-red-500"><i class="fas fa-trash"></i></button>
-                    </div>
-                `;
+                        <div class="flex gap-1">
+                            <button onclick="openDisc('${i.id}')" class="text-blue-500 px-1"><i class="fas fa-tag"></i></button>
+                            <button onclick="delete cart['${i.id}']; renderCart()" class="text-red-500 px-1"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>`;
             });
             document.getElementById('pos-total').textContent = '₱' + total.toFixed(2);
         }
 
+        // --- DISCOUNTS ---
+        window.openDisc = (id) => {
+            discountTargetId = id;
+            document.getElementById('discount-modal').classList.remove('hidden');
+            resetDiscModal();
+        };
+        window.showDiscInput = (type) => {
+            document.getElementById('disc-selection').classList.add('hidden');
+            document.getElementById('disc-form').classList.remove('hidden');
+            document.getElementById('disc-form').dataset.type = type;
+            
+            const l = document.getElementById('disc-label');
+            const iId = document.getElementById('disc-id');
+            const iPass = document.getElementById('disc-pass');
+            const iPct = document.getElementById('disc-percent');
+            
+            iId.classList.add('hidden'); iPass.classList.add('hidden'); iPct.classList.add('hidden');
+            
+            if(type === 'pwd') { l.textContent="PWD/Senior ID Number"; iId.classList.remove('hidden'); }
+            else if(type === 'employee') { l.textContent="Employee Email & Password"; iId.classList.remove('hidden'); iPass.classList.remove('hidden'); }
+            else { l.textContent="Manual Percentage"; iPct.classList.remove('hidden'); }
+        };
+        window.resetDiscModal = () => {
+            document.getElementById('disc-selection').classList.remove('hidden');
+            document.getElementById('disc-form').classList.add('hidden');
+            document.getElementById('disc-id').value = '';
+            document.getElementById('disc-pass').value = '';
+            document.getElementById('disc-percent').value = '';
+        };
+        window.applyDiscount = () => {
+            const type = document.getElementById('disc-form').dataset.type;
+            const item = cart[discountTargetId];
+            let pct = 0, ref = '';
+
+            if(type === 'pwd') {
+                ref = document.getElementById('disc-id').value;
+                if(!ref) return alert("ID Required");
+                pct = 20;
+            } else if(type === 'employee') {
+                const em = document.getElementById('disc-id').value;
+                if(!em.endsWith('@smbwg.com')) return alert("Invalid Email");
+                ref = em; pct = 10;
+                showToast(`Notified: ${em}`);
+            } else {
+                pct = parseFloat(document.getElementById('disc-percent').value);
+            }
+
+            if(item) { item.discount = pct; item.discType = type; item.discRef = ref; }
+            renderCart();
+            window.closeModal('discount-modal');
+        };
+
+        // --- SUBMIT ORDER ---
         window.submitOrder = async () => {
-            const table = document.getElementById('pos-table-select').value;
+            const table = document.getElementById('pos-table').value;
             const items = Object.values(cart);
             if(!table || items.length === 0) return showToast("Select Table & Items");
 
-            // Check if table active
-            const existingOrder = activeOrders.find(o => o.table === table && o.status !== 'completed');
-            
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true; btn.innerHTML = "Processing...";
+
             try {
                 await runTransaction(db, async (t) => {
-                    // Stock Check & Deduct
+                    // 1. Stock
                     for(const i of items) {
                         const ref = doc(db, "inventory", i.id);
                         const s = await t.get(ref);
@@ -454,227 +485,216 @@
                         t.update(ref, { stock: s.data().stock - i.qty });
                     }
 
-                    if(existingOrder) {
-                        // Append to existing
-                        // We map items to simplified objects
-                        const newItems = items.map(i => ({ 
-                            name: i.name, qty: i.qty, price: i.price, id: i.id, 
-                            discount: i.discount, discType: i.discType, discRef: i.discRef || '', checked: false 
-                        }));
-                        // ArrayUnion doesn't work well with complex arrays if we want to just "add to list". 
-                        // Better to read current, append, and update.
-                        const orderRef = doc(db, "active_orders", existingOrder.id);
-                        const orderSnap = await t.get(orderRef);
-                        const currentItems = orderSnap.data().items || [];
-                        const updatedItems = [...currentItems, ...newItems];
-                        const newTotal = updatedItems.reduce((acc, i) => acc + (i.price * i.qty * ((100-(i.discount||0))/100)), 0);
-                        
-                        t.update(orderRef, { items: updatedItems, total: newTotal });
+                    // 2. Check Existing Order
+                    const existRef = activeOrders.find(o => o.table === table && o.status !== 'completed');
+                    
+                    const newItems = items.map(i => ({
+                        name: i.name, qty: i.qty, price: i.price, id: i.id,
+                        discount: i.discount, discType: i.discType, discRef: i.discRef||'', checked: false
+                    }));
+
+                    if(existRef) {
+                        // Append
+                        const ordRef = doc(db, "active_orders", existRef.id);
+                        const ordSnap = await t.get(ordRef);
+                        const currItems = ordSnap.data().items;
+                        const merged = [...currItems, ...newItems];
+                        const newTotal = merged.reduce((a,i) => a + (i.price * i.qty * ((100-(i.discount||0))/100)), 0);
+                        t.update(ordRef, { items: merged, total: newTotal });
                     } else {
-                        // New Order
-                        const orderData = {
-                            table, 
-                            status: 'pending', 
-                            timestamp: new Date().toISOString(),
-                            items: items.map(i => ({ 
-                                name: i.name, qty: i.qty, price: i.price, id: i.id, 
-                                discount: i.discount, discType: i.discType, discRef: i.discRef || '', checked: false 
-                            })),
-                            total: items.reduce((acc, i) => acc + (i.price * i.qty * ((100 - i.discount)/100)), 0)
-                        };
-                        t.set(doc(collection(db, "active_orders")), orderData);
+                        // Create
+                        const total = items.reduce((a,i) => a + (i.price * i.qty * ((100 - i.discount)/100)), 0);
+                        t.set(doc(collection(db, "active_orders")), {
+                            table, status: 'pending', items: newItems, total,
+                            timestamp: new Date().toISOString(), staff: currentUser.email
+                        });
                     }
                 });
-                cart = {}; renderCart(); showToast("Order Sent!");
+                cart = {}; renderCart(); showToast("Sent to Kitchen!");
             } catch(e) { alert(e); }
+            finally { btn.disabled = false; btn.innerHTML = "Send to Kitchen"; }
         };
 
         // --- KITCHEN ---
         function renderKitchen() {
-            const grid = document.getElementById('kitchen-grid');
-            grid.innerHTML = '';
+            const div = document.getElementById('kitchen-grid');
+            div.innerHTML = '';
             activeOrders.filter(o => o.status === 'pending').forEach(o => {
-                const el = document.createElement('div');
-                el.className = "bg-white p-4 rounded shadow border-l-4 border-yellow-500";
-                
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded shadow border-l-4 border-yellow-500";
                 let itemsHtml = '';
                 o.items.forEach((item, idx) => {
                     itemsHtml += `
                         <div class="flex items-center gap-2 py-1 border-b border-gray-100">
-                            <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleItemCheck('${o.id}', ${idx}, this.checked)" class="w-5 h-5 text-orange-600 rounded">
-                            <span class="${item.checked ? 'line-through text-gray-400' : 'font-bold text-gray-800'}">${item.qty}x ${item.name}</span>
-                        </div>
-                    `;
+                            <input type="checkbox" ${item.checked?'checked':''} onchange="toggleCheck('${o.id}', ${idx}, this.checked)" class="w-5 h-5 text-orange-600 rounded">
+                            <span class="${item.checked?'line-through text-gray-400':'font-bold'}">${item.qty}x ${item.name}</span>
+                        </div>`;
                 });
-
-                el.innerHTML = `
-                    <div class="flex justify-between font-bold text-lg mb-2">
-                        <span>${o.table}</span>
-                        <span class="text-sm font-normal text-gray-500">${new Date(o.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    <div class="mb-4">${itemsHtml}</div>
-                    <button onclick="markServed('${o.id}')" class="w-full bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600">Mark Served</button>
-                `;
-                grid.appendChild(el);
+                card.innerHTML = `<div class="flex justify-between font-bold mb-2"><span>${o.table}</span><span class="text-sm font-normal">${new Date(o.timestamp).toLocaleTimeString()}</span></div><div class="mb-4">${itemsHtml}</div><button onclick="markServed('${o.id}')" class="w-full bg-green-600 text-white font-bold py-2 rounded">Mark Served</button>`;
+                div.appendChild(card);
             });
         }
-
-        window.toggleItemCheck = async (orderId, itemIdx, isChecked) => {
-            const ref = doc(db, "active_orders", orderId);
-            const snap = await getDoc(ref);
-            if(snap.exists()) {
-                const items = snap.data().items;
-                items[itemIdx].checked = isChecked;
+        window.toggleCheck = async (oid, idx, val) => {
+            const ref = doc(db, "active_orders", oid);
+            const s = await getDoc(ref);
+            if(s.exists()) {
+                const items = s.data().items;
+                items[idx].checked = val;
                 await updateDoc(ref, { items });
             }
         };
+        window.markServed = async (id) => await updateDoc(doc(db, "active_orders", id), { status: 'served' });
 
-        window.markServed = async(id) => await updateDoc(doc(db, "active_orders", id), { status: 'served' });
-
-        // --- CASHIER & PAYMENT ---
+        // --- CASHIER ---
         function renderCashier() {
-            const div = document.getElementById('cashier-tables');
+            const div = document.getElementById('cashier-grid');
             div.innerHTML = '';
             activeOrders.filter(o => o.status !== 'completed').forEach(o => {
-                const color = o.status === 'pending' ? 'bg-yellow-100 border-yellow-400' : 'bg-green-100 border-green-400';
+                const bg = o.status === 'pending' ? 'bg-yellow-100 border-yellow-300' : 'bg-green-100 border-green-300';
                 div.innerHTML += `
-                    <div onclick="selectCashierOrder('${o.id}')" class="p-4 rounded border-2 cursor-pointer hover:shadow-lg ${color}">
+                    <div onclick="openCashierModal('${o.id}')" class="p-4 rounded border cursor-pointer hover:shadow-lg ${bg}">
                         <div class="font-bold text-lg">${o.table}</div>
-                        <div class="text-xs uppercase font-bold">${o.status}</div>
+                        <div class="text-xs font-bold uppercase mt-1">${o.status}</div>
                         <div class="text-right font-bold mt-2">₱${o.total.toFixed(2)}</div>
-                    </div>
-                `;
+                    </div>`;
             });
         }
-
-        window.selectCashierOrder = (id) => {
+        window.openCashierModal = (id) => {
             const o = activeOrders.find(x => x.id === id);
-            const p = document.getElementById('cashier-panel');
             if(!o) return;
+            // Simple render into the panel
+            const p = document.getElementById('cashier-panel');
+            const isServed = o.status === 'served';
+            const btnHtml = isServed 
+                ? `<div class="grid grid-cols-2 gap-2 mt-4"><button onclick="pay('${o.id}','Cash')" class="bg-green-600 text-white py-2 rounded font-bold">Cash</button><button onclick="pay('${o.id}','GCash')" class="bg-blue-600 text-white py-2 rounded font-bold">GCash</button></div><button onclick="payCredit('${o.id}')" class="w-full bg-purple-600 text-white py-2 rounded font-bold mt-2">Charge to Account</button>`
+                : `<div class="mt-4 text-center bg-gray-200 p-2 rounded text-sm">Wait for Kitchen</div>`;
+            
             p.innerHTML = `
-                <h3 class="font-bold text-xl border-b pb-2 mb-4">${o.table}</h3>
-                <div class="flex-1 overflow-y-auto mb-4 text-sm">
-                    ${o.items.map(i => `<div class="flex justify-between py-1"><span>${i.qty}x ${i.name} ${i.discount>0?`(-${i.discount}%)`:''}</span><span>₱${(i.qty*i.price*((100-(i.discount||0))/100)).toFixed(2)}</span></div>`).join('')}
+                <h3 class="font-bold text-xl border-b pb-2 mb-2">${o.table}</h3>
+                <div class="flex-1 overflow-y-auto text-sm space-y-1">
+                    ${o.items.map(i => `<div class="flex justify-between"><span>${i.qty}x ${i.name} ${i.discount>0?`(-${i.discount}%)`:''}</span><span>₱${(i.price*i.qty*((100-(i.discount||0))/100)).toFixed(2)}</span></div>`).join('')}
                 </div>
-                <div class="text-2xl font-bold text-right mb-4">₱${o.total.toFixed(2)}</div>
-                
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <button onclick="payOrder('${o.id}', 'Cash')" class="bg-green-600 text-white py-3 rounded font-bold">Cash</button>
-                    <button onclick="payOrder('${o.id}', 'GCash')" class="bg-blue-600 text-white py-3 rounded font-bold">GCash</button>
-                </div>
-                <button onclick="payPayable('${o.id}')" class="w-full bg-purple-600 text-white py-3 rounded font-bold mb-2">Charge to Account (Payable)</button>
-                <button onclick="cancelOrder('${o.id}')" class="w-full text-red-500 text-sm">Cancel Order</button>
+                <div class="text-right font-bold text-2xl mt-4 border-t pt-2">₱${o.total.toFixed(2)}</div>
+                ${btnHtml}
+                <button onclick="if(confirm('Cancel Order?')) deleteDoc(doc(db,'active_orders','${o.id}'))" class="w-full text-red-500 text-xs mt-2">Cancel Order</button>
             `;
-        }
+        };
 
-        window.payOrder = async (id, method) => {
+        window.pay = async (id, method, acc='') => {
             if(!confirm(`Confirm ${method} Payment?`)) return;
-            await processPayment(id, method);
-        }
-
-        window.payPayable = async (id) => {
-            const email = prompt("Enter SMBWG Email:");
-            if(!email || !email.endsWith("@smbwg.com")) return alert("Invalid Account");
-            // Simulate password check
-            const pass = prompt("Password:");
-            if(!pass) return;
-            
-            await processPayment(id, 'Payable', email);
-        }
-
-        async function processPayment(id, method, account = null) {
             const o = activeOrders.find(x => x.id === id);
-            const saleData = { ...o, paymentMethod: method, payableAccount: account, completedAt: new Date().toISOString() };
-            delete saleData.id; // remove doc id
-            await addDoc(collection(db, "sales"), saleData);
+            const sale = { ...o, paymentMethod: method, account: acc, completedAt: new Date().toISOString() };
+            delete sale.id;
+            await addDoc(collection(db, "sales"), sale);
             await deleteDoc(doc(db, "active_orders", id));
-            showToast("Transaction Completed");
-            document.getElementById('cashier-panel').innerHTML = '<div class="text-center text-gray-400 italic mt-20">Select an active table</div>';
-            
-            // Print Receipt
-            printReceipt(o, method, account);
-        }
+            showToast("Paid!");
+            document.getElementById('cashier-panel').innerHTML = '<div class="text-center text-gray-400 italic mt-20">Select a table</div>';
+            printReceipt(o, method, acc);
+        };
 
-        function printReceipt(o, method, account) {
+        window.payCredit = (id) => {
+            const acc = prompt("Enter SMBWG Email:");
+            if(!acc || !acc.endsWith('@smbwg.com')) return alert("Invalid Account");
+            const pass = prompt("Password:"); // Sim
+            if(!pass) return;
+            pay(id, 'Payable', acc);
+        };
+
+        // --- PRINT ---
+        function printReceipt(o, m, acc) {
             document.getElementById('r-date').textContent = new Date().toLocaleString();
             document.getElementById('r-table').textContent = o.table;
-            document.getElementById('r-staff').textContent = user.email;
-            document.getElementById('r-type').textContent = method + (account ? ` (${account})` : '');
-            
-            const tbody = document.getElementById('r-items');
-            tbody.innerHTML = '';
+            document.getElementById('r-staff').textContent = currentUser.email;
+            document.getElementById('r-type').textContent = m + (acc ? ` (${acc})` : '');
+            const tb = document.getElementById('r-items'); tb.innerHTML = '';
             o.items.forEach(i => {
-                const t = i.price * i.qty * ((100-(i.discount||0))/100);
-                const discTxt = i.discount > 0 ? `<br><span class="italic text-[10px]">Disc: ${i.discount}% ${i.discType}</span>` : '';
-                tbody.innerHTML += `<tr><td class="py-1">${i.name}${discTxt}</td><td class="text-right">${i.qty}</td><td class="text-right">₱${t.toFixed(2)}</td></tr>`;
+                const t = i.price*i.qty*((100-(i.discount||0))/100);
+                tb.innerHTML += `<tr><td>${i.name} ${i.discount>0?`(-${i.discount}%)`:''}</td><td class="text-right">${i.qty}</td><td class="text-right">₱${t.toFixed(2)}</td></tr>`;
             });
-            document.getElementById('r-total').textContent = '₱' + o.total.toFixed(2);
+            document.getElementById('r-total').textContent = '₱'+o.total.toFixed(2);
             window.print();
         }
 
         // --- INVENTORY & INGREDIENTS ---
-        window.promptAddItem = async (col) => {
+        window.addItem = async (col) => {
             const n = prompt("Name:"); if(!n) return;
-            const c = col === 'inventory' ? prompt("Category (e.g. Chicken):") : prompt("Unit (e.g. kg, liters):");
+            const c = col === 'inventory' ? prompt("Category (Exact spelling):") : prompt("Unit:");
             const p = col === 'inventory' ? parseFloat(prompt("Price:")) : 0;
-            const s = parseFloat(prompt("Stock/Qty:"));
+            const s = parseFloat(prompt("Stock:"));
             await addDoc(collection(db, col), { name: n, category: c, price: p, stock: s });
         }
-
         function renderInventory() {
             const tb = document.getElementById('inv-list'); tb.innerHTML = '';
             inventory.forEach(i => {
-                tb.innerHTML += `<tr class="border-b"><td class="p-3 font-bold">${i.name}</td><td class="p-3">${i.category}</td><td class="p-3">₱${i.price}</td><td class="p-3">${i.stock}</td><td class="p-3 text-right"><button onclick="editItem('${i.id}')" class="text-blue-500 mr-2">Edit</button></td></tr>`;
+                tb.innerHTML += `<tr class="border-b"><td class="p-3 font-bold">${i.name}</td><td class="p-3">${i.category}</td><td class="p-3">₱${i.price}</td><td class="p-3">${i.stock}</td><td class="p-3 text-right"><button onclick="editItem('${i.id}','inventory')" class="text-blue-500">Edit</button></td></tr>`;
             });
         }
-
         function renderIngredients() {
             const tb = document.getElementById('ing-list'); tb.innerHTML = '';
             ingredients.forEach(i => {
-                tb.innerHTML += `<tr class="border-b"><td class="p-3 font-bold">${i.name}</td><td class="p-3">${i.category}</td><td class="p-3">${i.stock}</td><td class="p-3 text-right"><button onclick="deleteDoc(doc(db,'ingredients','${i.id}'))" class="text-red-500">Del</button></td></tr>`; // category used as unit
+                tb.innerHTML += `<tr class="border-b"><td class="p-3 font-bold">${i.name}</td><td class="p-3">${i.category}</td><td class="p-3">${i.stock}</td><td class="p-3 text-right"><button onclick="editItem('${i.id}','ingredients')" class="text-blue-500">Edit</button></td></tr>`;
             });
         }
-
-        window.editItem = (id) => {
-            const i = inventory.find(x => x.id === id);
+        window.editItem = (id, col) => {
+            const item = (col==='inventory'?inventory:ingredients).find(x => x.id === id);
+            document.getElementById('edit-modal').classList.remove('hidden');
             document.getElementById('edit-id').value = id;
-            document.getElementById('edit-name').value = i.name;
-            document.getElementById('edit-price').value = i.price;
-            document.getElementById('edit-stock').value = i.stock;
-            document.getElementById('edit-item-modal').classList.remove('hidden');
-        }
-
-        window.saveItemEdit = async () => {
+            document.getElementById('edit-col').value = col;
+            document.getElementById('edit-name').value = item.name;
+            document.getElementById('edit-price').value = item.price;
+            document.getElementById('edit-stock').value = item.stock;
+        };
+        window.saveEdit = async () => {
             const id = document.getElementById('edit-id').value;
-            await updateDoc(doc(db, "inventory", id), {
+            const col = document.getElementById('edit-col').value;
+            await updateDoc(doc(db, col, id), {
                 name: document.getElementById('edit-name').value,
                 price: parseFloat(document.getElementById('edit-price').value),
                 stock: parseFloat(document.getElementById('edit-stock').value)
             });
-            closeModal('edit-item-modal');
-        }
+            window.closeModal('edit-modal');
+        };
 
-        // --- HISTORY (Admin Edit) ---
+        // --- HISTORY ---
         function renderHistory() {
             const tb = document.getElementById('hist-list'); tb.innerHTML = '';
             salesHistory.slice(0,50).forEach(s => {
-                tb.innerHTML += `<tr class="border-b"><td class="p-3 text-xs">${new Date(s.timestamp).toLocaleString()}</td><td class="p-3 text-xs uppercase">${s.paymentMethod}</td><td class="p-3 text-xs">${s.items.length} items (${s.table})</td><td class="p-3 font-bold text-right">₱${s.total.toFixed(2)}</td><td class="p-3 text-right"><button onclick="adminEditSale('${s.id}', ${s.total})" class="text-blue-500 text-xs mr-2">Edit</button><button onclick="deleteDoc(doc(db,'sales','${s.id}'))" class="text-red-500 text-xs">Del</button></td></tr>`;
+                tb.innerHTML += `<tr class="border-b"><td class="p-3 text-xs">${new Date(s.timestamp).toLocaleString()}</td><td class="p-3 text-xs uppercase">${s.paymentMethod}</td><td class="p-3 text-xs">${s.items.length} items (${s.table})</td><td class="p-3 font-bold text-right">₱${s.total.toFixed(2)}</td><td class="p-3 text-right"><button onclick="editSale('${s.id}', ${s.total})" class="text-blue-500 text-xs mr-2">Edit</button><button onclick="deleteDoc(doc(db,'sales','${s.id}'))" class="text-red-500 text-xs">Del</button></td></tr>`;
             });
         }
+        window.editSale = async (id, old) => {
+            const n = prompt("New Total:", old);
+            if(n) await updateDoc(doc(db, "sales", id), { total: parseFloat(n) });
+        };
 
-        window.adminEditSale = async (id, oldTotal) => {
-            const newTotal = prompt("Enter new total:", oldTotal);
-            if(newTotal) await updateDoc(doc(db, "sales", id), { total: parseFloat(newTotal) });
+        // --- SETTINGS (Tables) ---
+        function renderSettingsTables() {
+            const d = document.getElementById('settings-tables'); d.innerHTML = '';
+            tables.forEach(t => { d.innerHTML += `<div class="flex justify-between border p-2 rounded"><span>${t.name}</span><button onclick="deleteDoc(doc(db,'tables','${t.id}'))" class="text-red-500 text-xs">Del</button></div>`; });
+        }
+        window.addTable = async () => {
+            const n = document.getElementById('new-table-name').value;
+            if(n) await addDoc(collection(db, "tables"), { name: n });
+        };
+        function renderTableSelect() {
+            const s = document.getElementById('pos-table'); s.innerHTML = '<option value="">Select Table...</option>';
+            tables.forEach(t => s.add(new Option(t.name, t.name)));
         }
 
         // --- UTILS ---
         window.switchTab = (t) => {
             document.querySelectorAll('.content-tab').forEach(e => e.classList.add('hidden'));
             document.getElementById('tab-'+t).classList.remove('hidden');
+            if(window.innerWidth < 768) toggleSidebar();
         }
+        window.toggleSidebar = () => {
+            const s = document.getElementById('sidebar');
+            const o = document.getElementById('sidebar-overlay');
+            if(s.classList.contains('-translate-x-full')) { s.classList.remove('-translate-x-full'); o.classList.remove('hidden'); }
+            else { s.classList.add('-translate-x-full'); o.classList.add('hidden'); }
+        };
         window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-        window.clearCart = () => { cart = {}; renderCart(); }
-        function showToast(m) { const t=document.getElementById('toast'); document.getElementById('toast-msg').textContent=m; t.classList.remove('hidden','translate-x-full'); setTimeout(()=>t.classList.add('translate-x-full'), 3000); }
+        function showToast(m) { const t=document.getElementById('toast'); document.getElementById('toast-msg').textContent=m; t.classList.remove('hidden','translate-x-full'); setTimeout(()=>t.classList.add('translate-x-full'),3000); }
 
     </script>
 </body>
