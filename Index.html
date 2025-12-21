@@ -188,7 +188,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
                             <div class="flex justify-between items-center">
-                                <div><p class="text-gray-500 text-sm uppercase">Sales (Month)</p><h3 class="text-3xl font-bold text-gray-800" id="total-sales">$0.00</h3></div>
+                                <div><p class="text-gray-500 text-sm uppercase">Sales (Month)</p><h3 class="text-3xl font-bold text-gray-800" id="total-sales">₱0.00</h3></div>
                                 <div class="text-green-500 bg-green-100 p-3 rounded-full"><i class="fas fa-dollar-sign"></i></div>
                             </div>
                         </div>
@@ -316,7 +316,7 @@
                         <div class="p-4 bg-gray-50 border-t border-gray-200">
                             <div class="flex justify-between mb-2 text-xl font-bold">
                                 <span>Total</span>
-                                <span id="cart-final-total">$0.00</span>
+                                <span id="cart-final-total">₱0.00</span>
                             </div>
                             <div class="flex space-x-2">
                                 <button onclick="clearCart()" class="w-1/3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded-lg">Clear</button>
@@ -539,7 +539,7 @@
 
         function updateDashboardStats() {
             const total = salesData.reduce((s, r) => s + (r.total||0), 0);
-            document.getElementById('total-sales').textContent = '$'+total.toFixed(2);
+            document.getElementById('total-sales').textContent = '₱'+total.toFixed(2);
             document.getElementById('low-stock-count').textContent = inventoryData.filter(i => i.stock < (i.lowStockThreshold||10)).length;
         }
 
@@ -564,7 +564,7 @@
                     <td class="px-5 py-4 border-b bg-white text-xs">${new Date(r.timestamp).toLocaleString()}</td>
                     <td class="px-5 py-4 border-b bg-white"><span class="bg-${typeColor}-100 text-${typeColor}-800 text-xs px-2 py-1 rounded uppercase">${isSale ? 'Sale' : r.action}</span></td>
                     <td class="px-5 py-4 border-b bg-white text-sm truncate max-w-xs" title="${details}">${details}</td>
-                    <td class="px-5 py-4 border-b bg-white text-right text-sm font-bold">${r.total ? '$' + r.total.toFixed(2) : '-'}</td>
+                    <td class="px-5 py-4 border-b bg-white text-right text-sm font-bold">${r.total ? '₱' + r.total.toFixed(2) : '-'}</td>
                     <td class="px-5 py-4 border-b bg-white text-right">
                         ${isSale ? `<button onclick="printReceipt('${r.id}')" class="text-blue-500 hover:text-blue-700 mr-2"><i class="fas fa-print"></i></button>` : ''}
                         ${deleteBtn}
@@ -588,7 +588,7 @@
             if(chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'line',
-                data: { labels: Object.keys(days), datasets: [{ label: 'Sales ($)', data: Object.values(days), borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }] },
+                data: { labels: Object.keys(days), datasets: [{ label: 'Sales (₱)', data: Object.values(days), borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3 }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
@@ -644,7 +644,7 @@
                             <div class="text-xs text-gray-600">${new Date(o.timestamp).toLocaleTimeString()}</div>
                         </div>
                         <div class="text-right">
-                            <div class="font-bold text-sm">$${o.total.toFixed(2)}</div>
+                            <div class="font-bold text-sm">₱${o.total.toFixed(2)}</div>
                             <div class="text-[10px] uppercase font-bold">${o.status}</div>
                         </div>
                     `;
@@ -839,7 +839,7 @@
 
             const tbody = document.getElementById('receipt-items'); tbody.innerHTML = '';
             order.items.forEach(i => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="py-1">${i.name} ${i.discount ? `(-${i.discount}%)` : ''}</td><td class="py-1 text-right">${i.qty}</td><td class="py-1 text-right">${(i.price * i.qty * ((100-(i.discount||0))/100)).toFixed(2)}</td>`; tbody.appendChild(tr); });
-            document.getElementById('receipt-total').textContent = '$' + order.total.toFixed(2);
+            document.getElementById('receipt-total').textContent = '₱' + order.total.toFixed(2);
             window.print();
         }
 
@@ -864,8 +864,8 @@
                     <span class="px-2 py-1 rounded text-xs font-bold ${isServed ? 'bg-blue-200 text-blue-800' : 'bg-yellow-200 text-yellow-800'}">${order.status.toUpperCase()}</span>
                 </div>
                 ${customerInfo}
-                <ul class="flex-1 overflow-y-auto space-y-2 mb-4">${order.items.map(i => `<li class="flex justify-between border-b pb-1"><span>${i.qty}x ${i.name}</span><span>$${(i.price*i.qty).toFixed(2)}</span></li>`).join('')}</ul>
-                <div class="text-right font-bold text-2xl mb-4">$${order.total.toFixed(2)}</div>
+                <ul class="flex-1 overflow-y-auto space-y-2 mb-4">${order.items.map(i => `<li class="flex justify-between border-b pb-1"><span>${i.qty}x ${i.name}</span><span>₱${(i.price*i.qty).toFixed(2)}</span></li>`).join('')}</ul>
+                <div class="text-right font-bold text-2xl mb-4">₱${order.total.toFixed(2)}</div>
                 <div class="grid grid-cols-1 gap-2">
                     ${isServed 
                         ? `<button onclick="finalizePayment('${order.id}')" class="bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 shadow">Pay & Close</button>` 
@@ -952,7 +952,7 @@
             const reportAuditData = auditSnap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
             const sBody = document.getElementById('report-sales-body'); sBody.innerHTML = '';
             if(reportSalesData.length === 0) sBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">No sales found.</td></tr>';
-            reportSalesData.forEach(s => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="p-3 text-gray-600">${new Date(s.timestamp).toLocaleDateString()} ${new Date(s.timestamp).toLocaleTimeString()}</td><td class="p-3 text-gray-800 font-medium">${s.items ? s.items.length : 0} Items</td><td class="p-3 text-right font-bold">$${(s.total||0).toFixed(2)}</td>`; sBody.appendChild(tr); });
+            reportSalesData.forEach(s => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="p-3 text-gray-600">${new Date(s.timestamp).toLocaleDateString()} ${new Date(s.timestamp).toLocaleTimeString()}</td><td class="p-3 text-gray-800 font-medium">${s.items ? s.items.length : 0} Items</td><td class="p-3 text-right font-bold">₱${(s.total||0).toFixed(2)}</td>`; sBody.appendChild(tr); });
             const aBody = document.getElementById('report-audit-body'); aBody.innerHTML = '';
             if(reportAuditData.length === 0) aBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">No changes found.</td></tr>';
             reportAuditData.forEach(a => { const tr = document.createElement('tr'); tr.innerHTML = `<td class="p-3 text-gray-600">${new Date(a.timestamp).toLocaleDateString()}</td><td class="p-3"><span class="uppercase text-xs font-bold px-2 py-1 rounded bg-gray-100">${a.action}</span></td><td class="p-3 text-sm text-gray-700">${a.description}</td>`; aBody.appendChild(tr); });
@@ -986,7 +986,7 @@
              const c = document.getElementById('cart-items'); c.innerHTML='';
              let tot = 0;
              Object.values(cart).forEach(i=>{ const p = i.item.price * ((100-i.discount)/100); tot += p*i.quantity; const d = document.createElement('div'); d.className = "flex justify-between items-center bg-white border p-2 rounded"; d.innerHTML = `<div>${i.item.name}<br><small>${i.quantity} x ${p.toFixed(2)}</small></div> <button onclick="removeFromCart('${i.item.id}')" class="text-red-500"><i class="fas fa-trash"></i></button>`; c.appendChild(d); });
-             document.getElementById('cart-final-total').textContent = '$'+tot.toFixed(2);
+             document.getElementById('cart-final-total').textContent = '₱'+tot.toFixed(2);
         }
         window.filterPos = (c) => { posCategoryFilter = c; renderPosGrid(); }
         let posCategoryFilter = 'All';
@@ -1004,3 +1004,5 @@
     </script>
 </body>
 </html>
+
+
